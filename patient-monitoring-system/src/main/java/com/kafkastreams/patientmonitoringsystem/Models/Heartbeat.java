@@ -9,5 +9,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class Heartbeat {
     private long timestamp;
+    private int patientId;
     private int deviceId;
 }
