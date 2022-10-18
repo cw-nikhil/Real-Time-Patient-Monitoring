@@ -2,23 +2,29 @@ package com.kafkastreams.patientmonitoringsystem.Topology;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.stream.Collectors;
 
 import org.apache.kafka.common.serialization.Serdes;
+import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Aggregator;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.Initializer;
 import org.apache.kafka.streams.kstream.KTable;
+import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Suppressed;
 import org.apache.kafka.streams.kstream.Windowed;
 import org.apache.kafka.streams.kstream.Suppressed.BufferConfig;
+import org.apache.kafka.streams.state.KeyValueStore;
 
 import com.kafkastreams.patientmonitoringsystem.CustomSerdes.JsonSerde;
+import com.kafkastreams.patientmonitoringsystem.Models.DeviceStats;
 import com.kafkastreams.patientmonitoringsystem.Models.RecordedHB;
 
 public class FaultyHBDeviceDetectionTopology {
     private static String recordedHeartbeatValues = "recordedHeartbeatValues";
+    private static String deviceStatsStore = "device-stats-store";
     private static int maxHbDeviation = 4;
     public void run() {
         StreamsBuilder builder = new StreamsBuilder();
@@ -56,19 +62,39 @@ public class FaultyHBDeviceDetectionTopology {
             null,
             null
         );
+        
+        materializeDeviceStats(table);
+    }
 
+    private void materializeDeviceStats(KTable<Windowed<String>, ArrayList<RecordedHB>> table) {
         table
         .suppress(Suppressed.untilWindowCloses(BufferConfig.unbounded().shutDownWhenFull()))
         .toStream()
-        .mapValues(recordedValues -> getHealthyDeviceIds(recordedValues))
-        .flatMapValues(healtyDevices -> healtyDevices);
-
+        .mapValues(recordedValues -> getDeviceStatus(recordedValues))
+        .flatMapValues(healtyDevices -> healtyDevices)
+        .map((windowedPatientId, deviceInfo) -> {
+            String deviceId = deviceInfo.key;
+            Boolean isDeviceHealthy = deviceInfo.value;
+            return new KeyValue<>(deviceId, isDeviceHealthy);
+        })
+        .groupByKey()
+        .aggregate(
+            () -> new DeviceStats(),
+            (deviceId, isDeviceHealthy, deviceStats) -> {
+                deviceStats.setDeviceId(deviceId);
+                deviceStats.setTotalRecordings(deviceStats.getTotalRecordings() + 1);
+                deviceStats.setCorrectRecordings(deviceStats.getCorrectRecordings() + (isDeviceHealthy ? 1 : 0));
+                return deviceStats;
+            },
+            Materialized.<String, DeviceStats, KeyValueStore<Bytes,byte[]>>as(deviceStatsStore)
+        );
     }
 
-    private static ArrayList<String> getHealthyDeviceIds(ArrayList<RecordedHB> recordedValues) {
+    private static ArrayList<KeyValue<String, Boolean>> getDeviceStatus(ArrayList<RecordedHB> recordedValues) {
         if (recordedValues.isEmpty()) {
             return new ArrayList<>();
         }
+        int minHbValue = 30;
         int maxHbValue = 150;
         HashMap<Integer, ArrayList<String>> devicesByHb = new HashMap<Integer, ArrayList<String>>();
         recordedValues.forEach(recordedValue -> {
@@ -76,7 +102,7 @@ public class FaultyHBDeviceDetectionTopology {
         });
         HashMap<Integer, Integer> deviceCountInWindow = new HashMap<Integer, Integer>();
         int maxDevices = 0;
-        for (int hbWindowStart = 30; hbWindowStart < maxHbValue; hbWindowStart++) {
+        for (int hbWindowStart = minHbValue; hbWindowStart < maxHbValue; hbWindowStart++) {
             int devicesInCurrentWindow = 0;
             for (int hb = hbWindowStart; hb < hbWindowStart + maxHbDeviation; hb++) {
                 devicesInCurrentWindow += devicesByHb.get(hb).size();
@@ -92,10 +118,18 @@ public class FaultyHBDeviceDetectionTopology {
             }
         });
         int chosenWindow = windowsWithMaxDevices.get(windowsWithMaxDevices.size() - 1);
-        ArrayList<String> healthyDevices = new ArrayList<>();
+        ArrayList<KeyValue<String, Boolean>> deviceStatus = new ArrayList<>();
         for (int hb = chosenWindow; hb < chosenWindow + maxHbDeviation; hb++) {
-            healthyDevices.addAll(devicesByHb.get(hb));
+            deviceStatus.addAll(
+                devicesByHb.get(hb).stream().map(deviceId -> new KeyValue<>(deviceId, true)).collect(Collectors.toList())
+            );
         }
-        return healthyDevices;
+        for (int hb = minHbValue; hb < maxHbValue; hb++) {
+            Boolean isCorrectHb = hb >= chosenWindow && hb < chosenWindow + maxHbDeviation;
+            deviceStatus.addAll(
+                devicesByHb.get(hb).stream().map(deviceId -> new KeyValue<>(deviceId, isCorrectHb)).collect(Collectors.toList())
+            );
+        }
+        return deviceStatus;
     }
 }
