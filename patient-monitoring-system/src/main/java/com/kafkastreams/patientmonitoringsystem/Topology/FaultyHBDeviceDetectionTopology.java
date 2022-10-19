@@ -11,8 +11,9 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Aggregator;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.Initializer;
-import org.apache.kafka.streams.kstream.KTable;
+import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Materialized;
+import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.Suppressed;
 import org.apache.kafka.streams.kstream.Windowed;
 import org.apache.kafka.streams.kstream.Suppressed.BufferConfig;
@@ -21,14 +22,16 @@ import org.apache.kafka.streams.state.KeyValueStore;
 import com.kafkastreams.patientmonitoringsystem.CustomSerdes.JsonSerde;
 import com.kafkastreams.patientmonitoringsystem.Models.DeviceStats;
 import com.kafkastreams.patientmonitoringsystem.Models.RecordedHB;
+import com.kafkastreams.patientmonitoringsystem.Models.RecordedHBWithValidation;
 
 public class FaultyHBDeviceDetectionTopology {
     private static String recordedHeartbeatValues = "recordedHeartbeatValues";
+    private static String deviceAvgHeartbeatValues = "device-avg-hb";
     private static String deviceStatsStore = "device-stats-store";
     private static int maxHbDeviation = 4;
     public void run() {
         StreamsBuilder builder = new StreamsBuilder();
-        KTable<Windowed<String>, ArrayList<RecordedHB>> table = builder.stream(
+        KStream<Windowed<String>, ArrayList<RecordedHBWithValidation>> validatedHBStream = builder.stream(
             recordedHeartbeatValues,
             Consumed.with(new JsonSerde<Windowed<String>>(), Serdes.Long())
         )
@@ -61,21 +64,22 @@ public class FaultyHBDeviceDetectionTopology {
             },
             null,
             null
-        );
-        
-        materializeDeviceStats(table);
-    }
-
-    private void materializeDeviceStats(KTable<Windowed<String>, ArrayList<RecordedHB>> table) {
-        table
+        )
         .suppress(Suppressed.untilWindowCloses(BufferConfig.unbounded().shutDownWhenFull()))
         .toStream()
-        .mapValues(recordedValues -> getDeviceStatus(recordedValues))
-        .flatMapValues(healtyDevices -> healtyDevices)
+        .mapValues(recordedHBs -> getRecordedHBWithValidation(recordedHBs));
+        
+        materializeDeviceStats(validatedHBStream);
+        streamDeviceAvgHB(validatedHBStream);
+    }
+
+    private void materializeDeviceStats(KStream<Windowed<String>, ArrayList<RecordedHBWithValidation>> validatedHBStream) {
+        validatedHBStream
+        .flatMapValues(recordedHBWithValidations -> recordedHBWithValidations)
         .map((windowedPatientId, deviceInfo) -> {
-            String deviceId = deviceInfo.key;
-            Boolean isDeviceHealthy = deviceInfo.value;
-            return new KeyValue<>(deviceId, isDeviceHealthy);
+            String deviceId = deviceInfo.getDeviceId();
+            Boolean isCorrectRecording = deviceInfo.getIsCorrectRecording();
+            return new KeyValue<>(deviceId, isCorrectRecording);
         })
         .groupByKey()
         .aggregate(
@@ -90,7 +94,25 @@ public class FaultyHBDeviceDetectionTopology {
         );
     }
 
-    private static ArrayList<KeyValue<String, Boolean>> getDeviceStatus(ArrayList<RecordedHB> recordedValues) {
+    private void streamDeviceAvgHB(KStream<Windowed<String>, ArrayList<RecordedHBWithValidation>> validatedHBStream) {
+        validatedHBStream
+        .map((windowedPatientId, recordedHBWithValidations) -> {
+            String patientId = windowedPatientId.key();
+            int hbSum = 0;
+            int correctRecordings = 0;
+            for (RecordedHBWithValidation recordedHBWithValidation : recordedHBWithValidations) {
+                if (recordedHBWithValidation.getIsCorrectRecording()) {
+                    hbSum += recordedHBWithValidation.getHeartbeat();
+                    correctRecordings++;
+                }
+            }
+            int avgHb = hbSum / correctRecordings;
+            return new KeyValue<String, Integer>(patientId, avgHb);
+        })
+        .to(deviceAvgHeartbeatValues, Produced.with(Serdes.String(), Serdes.Integer()));
+    }
+
+    private static ArrayList<RecordedHBWithValidation> getRecordedHBWithValidation(ArrayList<RecordedHB> recordedValues) {
         if (recordedValues.isEmpty()) {
             return new ArrayList<>();
         }
@@ -118,16 +140,16 @@ public class FaultyHBDeviceDetectionTopology {
             }
         });
         int chosenWindow = windowsWithMaxDevices.get(windowsWithMaxDevices.size() - 1);
-        ArrayList<KeyValue<String, Boolean>> deviceStatus = new ArrayList<>();
-        for (int hb = chosenWindow; hb < chosenWindow + maxHbDeviation; hb++) {
-            deviceStatus.addAll(
-                devicesByHb.get(hb).stream().map(deviceId -> new KeyValue<>(deviceId, true)).collect(Collectors.toList())
-            );
-        }
+        ArrayList<RecordedHBWithValidation> deviceStatus = new ArrayList<>();
         for (int hb = minHbValue; hb < maxHbValue; hb++) {
+            final int hbFinal = hb;
             Boolean isCorrectHb = hb >= chosenWindow && hb < chosenWindow + maxHbDeviation;
             deviceStatus.addAll(
-                devicesByHb.get(hb).stream().map(deviceId -> new KeyValue<>(deviceId, isCorrectHb)).collect(Collectors.toList())
+                devicesByHb
+                .get(hb)
+                .stream()
+                .map(deviceId -> new RecordedHBWithValidation(deviceId, hbFinal, isCorrectHb))
+                .collect(Collectors.toList())
             );
         }
         return deviceStatus;
