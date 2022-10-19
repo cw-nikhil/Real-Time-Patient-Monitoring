@@ -12,6 +12,4 @@ import lombok.NoArgsConstructor;
 public class BloodPressure {
     private int systolicPressure;
     private int diastolicPressure;
-    private long timestamp;
-    private int deviceId;
 }
