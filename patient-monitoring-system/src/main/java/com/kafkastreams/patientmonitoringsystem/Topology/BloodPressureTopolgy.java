@@ -13,8 +13,9 @@ import org.apache.kafka.streams.kstream.Produced;
 import com.kafkastreams.patientmonitoringsystem.StreamUtils;
 import com.kafkastreams.patientmonitoringsystem.CustomSerdes.JsonSerde;
 import com.kafkastreams.patientmonitoringsystem.Models.BloodPressure;
+import com.kafkastreams.patientmonitoringsystem.Topology.Interface.PatientMonitoringTopology;
 
-public class BloodPressureTopolgy {
+public class BloodPressureTopolgy implements PatientMonitoringTopology {
     private static String bpTopic = "blood-pressures";
     private static String highBpTopic = "high-bp";
     public KafkaStreams run() {

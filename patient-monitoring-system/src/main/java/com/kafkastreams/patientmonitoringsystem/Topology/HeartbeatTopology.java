@@ -16,8 +16,9 @@ import org.apache.kafka.streams.kstream.Suppressed.BufferConfig;
 import com.kafkastreams.patientmonitoringsystem.StreamUtils;
 import com.kafkastreams.patientmonitoringsystem.CustomSerdes.JsonSerde;
 import com.kafkastreams.patientmonitoringsystem.Models.Heartbeat;
+import com.kafkastreams.patientmonitoringsystem.Topology.Interface.PatientMonitoringTopology;
 
-public class HeartbeatTopology {
+public class HeartbeatTopology implements PatientMonitoringTopology {
     private static String heartbeatTopic = "heartbeats";
     private static String recordedHeartbeatValues = "recordedHeartbeatValues";
     private static int heartbeatWindowInSeconds = 60;

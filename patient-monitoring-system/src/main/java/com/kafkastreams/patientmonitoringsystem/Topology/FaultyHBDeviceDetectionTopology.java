@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
+import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Aggregator;
@@ -19,17 +20,19 @@ import org.apache.kafka.streams.kstream.Windowed;
 import org.apache.kafka.streams.kstream.Suppressed.BufferConfig;
 import org.apache.kafka.streams.state.KeyValueStore;
 
+import com.kafkastreams.patientmonitoringsystem.StreamUtils;
 import com.kafkastreams.patientmonitoringsystem.CustomSerdes.JsonSerde;
 import com.kafkastreams.patientmonitoringsystem.Models.DeviceStats;
 import com.kafkastreams.patientmonitoringsystem.Models.RecordedHB;
 import com.kafkastreams.patientmonitoringsystem.Models.RecordedHBWithValidation;
+import com.kafkastreams.patientmonitoringsystem.Topology.Interface.PatientMonitoringTopology;
 
-public class FaultyHBDeviceDetectionTopology {
+public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopology {
     private static String recordedHeartbeatValues = "recordedHeartbeatValues";
     private static String deviceAvgHeartbeatValues = "device-avg-hb";
     private static String deviceStatsStore = "device-stats-store";
     private static int maxHbDeviation = 4;
-    public void run() {
+    public KafkaStreams run() {
         StreamsBuilder builder = new StreamsBuilder();
         KStream<Windowed<String>, ArrayList<RecordedHBWithValidation>> validatedHBStream = builder.stream(
             recordedHeartbeatValues,
@@ -71,6 +74,7 @@ public class FaultyHBDeviceDetectionTopology {
         
         materializeDeviceStats(validatedHBStream);
         streamDeviceAvgHB(validatedHBStream);
+        return new KafkaStreams(builder.build(), StreamUtils.getStreamProperties());
     }
 
     private void materializeDeviceStats(KStream<Windowed<String>, ArrayList<RecordedHBWithValidation>> validatedHBStream) {
