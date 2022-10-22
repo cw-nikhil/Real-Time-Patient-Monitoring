@@ -21,19 +21,22 @@ public class HeartbeatTopology {
     private static String heartbeatTopic = "heartbeats";
     private static String recordedHeartbeatValues = "recordedHeartbeatValues";
     private static int heartbeatWindowInSeconds = 60;
+    private static int minimumHb = 35;
     public KafkaStreams run() {
         StreamsBuilder builder = new StreamsBuilder();
         KStream<String, Heartbeat> heartbeatStream = builder.stream(
             heartbeatTopic,
             Consumed.with(Serdes.String(), new JsonSerde<Heartbeat>())
         );
-        heartbeatStream.groupByKey()
+        heartbeatStream
+            .groupByKey()
             .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofSeconds(heartbeatWindowInSeconds)))
             .count()
             .suppress(
                 Suppressed.untilWindowCloses(BufferConfig.unbounded().shutDownWhenFull())
             )
             .toStream()
+            .filter((windowedPatientId, heartbeat) -> heartbeat >= minimumHb)
             .to(recordedHeartbeatValues, Produced.with(new JsonSerde<Windowed<String>>(), Serdes.Long()));
         KafkaStreams kafkaStreams = new KafkaStreams(builder.build(), StreamUtils.getStreamProperties());
         return kafkaStreams;

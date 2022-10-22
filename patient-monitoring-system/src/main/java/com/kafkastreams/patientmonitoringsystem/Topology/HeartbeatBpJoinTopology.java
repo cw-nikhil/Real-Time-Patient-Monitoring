@@ -19,17 +19,18 @@ import com.kafkastreams.patientmonitoringsystem.Models.HbBpJoinedValue;
 
 public class HeartbeatBpJoinTopology {
     private static String highBpTopic = "high-bp";
-    private static String highHeartbeatTopic = "high-heartbeat";
     private static String deviceAvgHeartbeatValues = "device-avg-hb";
     private static String combinedValuesTopic = "bp-hb-topic";
     private static String patientCombinedStatsStore = "patient-stats";
     private static int joinWindowInSeconds = 30;
+    private static int highHbThreshold = 100;
     public void run() {
         var builder = new StreamsBuilder();
         KStream<String, BloodPressure> highBpStream = builder
             .stream(highBpTopic, Consumed.with(Serdes.String(), new JsonSerde<BloodPressure>()));
         KStream<String, Integer> highHeartbeatStream = builder
-            .stream(deviceAvgHeartbeatValues, Consumed.with(Serdes.String(), Serdes.Integer()));
+            .stream(deviceAvgHeartbeatValues, Consumed.with(Serdes.String(), Serdes.Integer()))
+            .filter((patientId, heartbeat) -> heartbeat > highHbThreshold);
         
         ValueJoiner<BloodPressure, Integer, HbBpJoinedValue> valueJoiner = (bp, hb) -> {
             return new HbBpJoinedValue(hb, bp.getSystolicPressure(), bp.getDiastolicPressure());
