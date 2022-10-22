@@ -8,6 +8,7 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Branched;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.KStream;
+import org.apache.kafka.streams.kstream.Produced;
 
 import com.kafkastreams.patientmonitoringsystem.StreamUtils;
 import com.kafkastreams.patientmonitoringsystem.CustomSerdes.JsonSerde;
@@ -15,6 +16,7 @@ import com.kafkastreams.patientmonitoringsystem.Models.BloodPressure;
 
 public class BloodPressureTopolgy {
     private static String bpTopic = "blood-pressures";
+    private static String highBpTopic = "high-bp";
     public KafkaStreams run() {
         StreamsBuilder builder = new StreamsBuilder();
         Map<String, KStream<String, BloodPressure>>   branchedStream = builder
@@ -25,7 +27,7 @@ public class BloodPressureTopolgy {
         .branch((patientId, bp) -> isHighBp(bp), Branched.as("highBp"))
         .noDefaultBranch();
 
-        branchedStream.get("highBp").to("high-bp");
+        branchedStream.get("highBp").to(highBpTopic, Produced.with(Serdes.String(), new JsonSerde<BloodPressure>()));
         KafkaStreams kstreams = new KafkaStreams(builder.build(), StreamUtils.getStreamProperties());
         return kstreams;
     }

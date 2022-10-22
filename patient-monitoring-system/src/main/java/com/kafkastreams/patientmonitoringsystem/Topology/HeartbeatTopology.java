@@ -7,8 +7,10 @@ import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.KStream;
+import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.Suppressed;
 import org.apache.kafka.streams.kstream.TimeWindows;
+import org.apache.kafka.streams.kstream.Windowed;
 import org.apache.kafka.streams.kstream.Suppressed.BufferConfig;
 
 import com.kafkastreams.patientmonitoringsystem.StreamUtils;
@@ -32,7 +34,7 @@ public class HeartbeatTopology {
                 Suppressed.untilWindowCloses(BufferConfig.unbounded().shutDownWhenFull())
             )
             .toStream()
-            .to(recordedHeartbeatValues);
+            .to(recordedHeartbeatValues, Produced.with(new JsonSerde<Windowed<String>>(), Serdes.Long()));
         KafkaStreams kafkaStreams = new KafkaStreams(builder.build(), StreamUtils.getStreamProperties());
         return kafkaStreams;
     }
