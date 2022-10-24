@@ -12,21 +12,25 @@ import org.apache.kafka.streams.kstream.Suppressed;
 import org.apache.kafka.streams.kstream.TimeWindows;
 import org.apache.kafka.streams.kstream.Windowed;
 import org.apache.kafka.streams.kstream.Suppressed.BufferConfig;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.kafkastreams.patientmonitoringsystem.StreamUtils;
+import com.kafkastreams.patientmonitoringsystem.Config.StreamsConfiguration;
 import com.kafkastreams.patientmonitoringsystem.CustomSerdes.JsonSerde;
 import com.kafkastreams.patientmonitoringsystem.Models.Heartbeat;
 import com.kafkastreams.patientmonitoringsystem.Topology.Interface.PatientMonitoringTopology;
 
 public class HeartbeatTopology implements PatientMonitoringTopology {
-    private static String heartbeatTopic = "heartbeats";
-    private static String recordedHeartbeatValues = "recordedHeartbeatValues";
+
+    @Autowired
+	private StreamsConfiguration streamsConfig;
+
     private static int heartbeatWindowInSeconds = 60;
     private static int minimumHb = 35;
     public KafkaStreams run() {
         StreamsBuilder builder = new StreamsBuilder();
         KStream<String, Heartbeat> heartbeatStream = builder.stream(
-            heartbeatTopic,
+            streamsConfig.rawHbTopic,
             Consumed.with(Serdes.String(), new JsonSerde<Heartbeat>())
         );
         heartbeatStream
@@ -38,7 +42,7 @@ public class HeartbeatTopology implements PatientMonitoringTopology {
             )
             .toStream()
             .filter((windowedPatientId, heartbeat) -> heartbeat >= minimumHb)
-            .to(recordedHeartbeatValues, Produced.with(new JsonSerde<Windowed<String>>(), Serdes.Long()));
+            .to(streamsConfig.recordedHbTopic, Produced.with(new JsonSerde<Windowed<String>>(), Serdes.Long()));
         KafkaStreams kafkaStreams = new KafkaStreams(builder.build(), StreamUtils.getStreamProperties());
         return kafkaStreams;
     }

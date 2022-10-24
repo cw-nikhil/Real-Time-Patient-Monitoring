@@ -19,8 +19,10 @@ import org.apache.kafka.streams.kstream.Suppressed;
 import org.apache.kafka.streams.kstream.Windowed;
 import org.apache.kafka.streams.kstream.Suppressed.BufferConfig;
 import org.apache.kafka.streams.state.KeyValueStore;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.kafkastreams.patientmonitoringsystem.StreamUtils;
+import com.kafkastreams.patientmonitoringsystem.Config.StreamsConfiguration;
 import com.kafkastreams.patientmonitoringsystem.CustomSerdes.JsonSerde;
 import com.kafkastreams.patientmonitoringsystem.Models.DeviceStats;
 import com.kafkastreams.patientmonitoringsystem.Models.RecordedHB;
@@ -28,14 +30,16 @@ import com.kafkastreams.patientmonitoringsystem.Models.RecordedHBWithValidation;
 import com.kafkastreams.patientmonitoringsystem.Topology.Interface.PatientMonitoringTopology;
 
 public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopology {
-    private static String recordedHeartbeatValues = "recordedHeartbeatValues";
-    private static String deviceAvgHeartbeatValues = "device-avg-hb";
-    private static String deviceStatsStore = "device-stats-store";
-    private static int maxHbDeviation = 4;
+
+    @Autowired
+	private StreamsConfiguration streamsConfig;
+
+    private int maxHbDeviation = 2;
+    
     public KafkaStreams run() {
         StreamsBuilder builder = new StreamsBuilder();
         KStream<Windowed<String>, ArrayList<RecordedHBWithValidation>> validatedHBStream = builder.stream(
-            recordedHeartbeatValues,
+            streamsConfig.recordedHbTopic,
             Consumed.with(new JsonSerde<Windowed<String>>(), Serdes.Long())
         )
         .map((windowedKey, hb) -> {
@@ -94,7 +98,7 @@ public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopolog
                 deviceStats.setCorrectRecordings(deviceStats.getCorrectRecordings() + (isDeviceHealthy ? 1 : 0));
                 return deviceStats;
             },
-            Materialized.<String, DeviceStats, KeyValueStore<Bytes,byte[]>>as(deviceStatsStore)
+            Materialized.<String, DeviceStats, KeyValueStore<Bytes,byte[]>>as(streamsConfig.deviceStatsStore)
         );
     }
 
@@ -113,10 +117,10 @@ public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopolog
             int avgHb = hbSum / correctRecordings;
             return new KeyValue<String, Integer>(patientId, avgHb);
         })
-        .to(deviceAvgHeartbeatValues, Produced.with(Serdes.String(), Serdes.Integer()));
+        .to(streamsConfig.deviceAvgHbTopic, Produced.with(Serdes.String(), Serdes.Integer()));
     }
 
-    private static ArrayList<RecordedHBWithValidation> getRecordedHBWithValidation(ArrayList<RecordedHB> recordedValues) {
+    private ArrayList<RecordedHBWithValidation> getRecordedHBWithValidation(ArrayList<RecordedHB> recordedValues) {
         if (recordedValues.isEmpty()) {
             return new ArrayList<>();
         }
