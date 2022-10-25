@@ -1,4 +1,4 @@
-package com.kafkastreams.patientmonitoringsystem;
+package com.kafkastreams.patientmonitoringsystem.Utils;
 
 import java.io.FileInputStream;
 import java.util.Properties;

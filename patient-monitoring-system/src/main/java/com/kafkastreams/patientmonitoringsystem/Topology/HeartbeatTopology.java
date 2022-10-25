@@ -14,7 +14,7 @@ import org.apache.kafka.streams.kstream.Windowed;
 import org.apache.kafka.streams.kstream.Suppressed.BufferConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.kafkastreams.patientmonitoringsystem.StreamUtils;
+import com.kafkastreams.patientmonitoringsystem.Utils.StreamUtils;
 import com.kafkastreams.patientmonitoringsystem.Config.StreamsConfiguration;
 import com.kafkastreams.patientmonitoringsystem.CustomSerdes.JsonSerde;
 import com.kafkastreams.patientmonitoringsystem.Models.Heartbeat;

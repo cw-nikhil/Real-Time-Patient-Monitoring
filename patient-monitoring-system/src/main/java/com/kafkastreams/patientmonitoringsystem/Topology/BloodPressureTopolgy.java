@@ -11,7 +11,7 @@ import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Produced;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.kafkastreams.patientmonitoringsystem.StreamUtils;
+import com.kafkastreams.patientmonitoringsystem.Utils.StreamUtils;
 import com.kafkastreams.patientmonitoringsystem.Config.StreamsConfiguration;
 import com.kafkastreams.patientmonitoringsystem.CustomSerdes.JsonSerde;
 import com.kafkastreams.patientmonitoringsystem.Models.BloodPressure;
