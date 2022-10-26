@@ -1,13 +1,10 @@
 package com.kafkastreams.patientmonitoringsystem.Topology;
 
-import java.util.Map;
-
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Branched;
 import org.apache.kafka.streams.kstream.Consumed;
-import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Produced;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -24,15 +21,19 @@ public class BloodPressureTopolgy implements PatientMonitoringTopology {
     
     public KafkaStreams run() {
         StreamsBuilder builder = new StreamsBuilder();
-        Map<String, KStream<String, BloodPressure>>   branchedStream = builder
+        builder
         .stream(streamsConfig.bpTopic, Consumed.with(Serdes.String(), new JsonSerde<BloodPressure>()))
         .split()
         .branch((patientId, bp) -> isNormalBp(bp), Branched.as("normalBp"))
         .branch((patientId, bp) -> isLowBp(bp), Branched.as("lowBp"))
-        .branch((patientId, bp) -> isHighBp(bp), Branched.as("highBp"))
+        .branch(
+            (patientId, bp) -> isHighBp(bp),
+            Branched.withConsumer(ks -> ks.to(
+                streamsConfig.highBpTopic,
+                Produced.with(Serdes.String(), new JsonSerde<BloodPressure>())
+            ))
+        )
         .noDefaultBranch();
-
-        branchedStream.get("highBp").to(streamsConfig.highBpTopic, Produced.with(Serdes.String(), new JsonSerde<BloodPressure>()));
         KafkaStreams kstreams = new KafkaStreams(builder.build(), StreamUtils.getStreamProperties());
         return kstreams;
     }
