@@ -1,19 +1,14 @@
 package com.kafkastreams.patientmonitoringsystem.Utils;
 
-import java.io.FileInputStream;
 import java.util.Properties;
 
+import org.apache.kafka.streams.StreamsConfig;
+
 public class StreamUtils {
-    private static final String propertiesFilePath = "";
     public static Properties getStreamProperties() {
-        try {
-            Properties properties = new Properties();
-            FileInputStream fis = new FileInputStream(propertiesFilePath);
-            properties.load(fis);
-            return properties;
-        }
-        catch(Exception ex) {
-            return new Properties();
-        }
+        Properties properties = new Properties();
+        properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "http://localhost:9092");
+        properties.put(StreamsConfig.APPLICATION_ID_CONFIG, "patient-monitoring-system");
+        return properties;
     }
 }
