@@ -1,7 +1,7 @@
 package com.kafkastreams.patientmonitoringsystem.Topology.Interface;
 
-import org.apache.kafka.streams.KafkaStreams;
+import org.apache.kafka.streams.StreamsBuilder;
 
 public interface PatientMonitoringTopology {
-    public KafkaStreams run();
+    public void addTopology(StreamsBuilder builder);
 }

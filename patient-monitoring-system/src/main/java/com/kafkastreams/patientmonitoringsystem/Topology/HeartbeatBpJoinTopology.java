@@ -4,7 +4,6 @@ import java.time.Duration;
 
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
-import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.JoinWindows;
@@ -15,7 +14,6 @@ import org.apache.kafka.streams.kstream.ValueJoiner;
 import org.apache.kafka.streams.state.KeyValueStore;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.kafkastreams.patientmonitoringsystem.Utils.StreamUtils;
 import com.kafkastreams.patientmonitoringsystem.Config.StreamsConfiguration;
 import com.kafkastreams.patientmonitoringsystem.CustomSerdes.JsonSerde;
 import com.kafkastreams.patientmonitoringsystem.Models.BloodPressure;
@@ -29,8 +27,7 @@ public class HeartbeatBpJoinTopology implements PatientMonitoringTopology {
 
     private static int joinWindowInSeconds = 30;
     private static int highHbThreshold = 100;
-    public KafkaStreams run() {
-        var builder = new StreamsBuilder();
+    public void addTopology(StreamsBuilder builder) {
         KStream<String, BloodPressure> highBpStream = builder
             .stream(streamsConfig.highBpTopic, Consumed.with(Serdes.String(), new JsonSerde<BloodPressure>()));
         KStream<String, Integer> highHeartbeatStream = builder
@@ -51,7 +48,6 @@ public class HeartbeatBpJoinTopology implements PatientMonitoringTopology {
         joinedStream.to(streamsConfig.combinedValuesTopic, Produced.with(Serdes.String(), new JsonSerde<HbBpJoinedValue>()));
 
         materializeJoinedStream(joinedStream);
-        return new KafkaStreams(builder.build(), StreamUtils.getStreamProperties());
     }
 
     private void materializeJoinedStream(KStream<String, HbBpJoinedValue> joinedStream) {

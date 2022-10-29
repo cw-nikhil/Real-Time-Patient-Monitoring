@@ -6,7 +6,6 @@ import java.util.stream.Collectors;
 
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
-import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Aggregator;
@@ -21,7 +20,6 @@ import org.apache.kafka.streams.kstream.Suppressed.BufferConfig;
 import org.apache.kafka.streams.state.KeyValueStore;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.kafkastreams.patientmonitoringsystem.Utils.StreamUtils;
 import com.kafkastreams.patientmonitoringsystem.Config.StreamsConfiguration;
 import com.kafkastreams.patientmonitoringsystem.CustomSerdes.JsonSerde;
 import com.kafkastreams.patientmonitoringsystem.Models.DeviceStats;
@@ -36,8 +34,7 @@ public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopolog
 
     private int maxHbDeviation = 2;
     
-    public KafkaStreams run() {
-        StreamsBuilder builder = new StreamsBuilder();
+    public void addTopology(StreamsBuilder builder) {
         KStream<Windowed<String>, ArrayList<RecordedHBWithValidation>> validatedHBStream = builder.stream(
             streamsConfig.recordedHbTopic,
             Consumed.with(new JsonSerde<Windowed<String>>(), Serdes.Long())
@@ -78,7 +75,6 @@ public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopolog
         
         materializeDeviceStats(validatedHBStream);
         streamDeviceAvgHB(validatedHBStream);
-        return new KafkaStreams(builder.build(), StreamUtils.getStreamProperties());
     }
 
     private void materializeDeviceStats(KStream<Windowed<String>, ArrayList<RecordedHBWithValidation>> validatedHBStream) {
