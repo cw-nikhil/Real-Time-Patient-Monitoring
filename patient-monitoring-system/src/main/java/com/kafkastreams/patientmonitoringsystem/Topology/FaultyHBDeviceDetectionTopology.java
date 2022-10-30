@@ -14,9 +14,7 @@ import org.apache.kafka.streams.kstream.Initializer;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
-import org.apache.kafka.streams.kstream.Suppressed;
 import org.apache.kafka.streams.kstream.Windowed;
-import org.apache.kafka.streams.kstream.Suppressed.BufferConfig;
 import org.apache.kafka.streams.state.KeyValueStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -69,7 +67,6 @@ public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopolog
                 
             }
         )
-        // .suppress(Suppressed.untilWindowCloses(BufferConfig.unbounded().shutDownWhenFull()))
         .toStream()
         .mapValues(recordedHBs -> getRecordedHBWithValidation(recordedHBs));
         
