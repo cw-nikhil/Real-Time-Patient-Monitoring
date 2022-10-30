@@ -29,4 +29,7 @@ public class StreamsConfiguration {
 
     @Value("${patientCombinedStatsStore}")
     public String patientCombinedStatsStore;
+
+    @Value("${recentJoinedStatsStore}")
+    public String recentJoinedStatsStore;
 }
