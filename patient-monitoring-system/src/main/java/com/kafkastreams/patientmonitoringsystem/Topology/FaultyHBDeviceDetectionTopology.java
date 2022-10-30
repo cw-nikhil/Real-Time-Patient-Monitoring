@@ -19,6 +19,7 @@ import org.apache.kafka.streams.kstream.Windowed;
 import org.apache.kafka.streams.kstream.Suppressed.BufferConfig;
 import org.apache.kafka.streams.state.KeyValueStore;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import com.kafkastreams.patientmonitoringsystem.Config.StreamsConfiguration;
 import com.kafkastreams.patientmonitoringsystem.CustomSerdes.JsonSerde;
@@ -27,6 +28,7 @@ import com.kafkastreams.patientmonitoringsystem.Models.RecordedHB;
 import com.kafkastreams.patientmonitoringsystem.Models.RecordedHBWithValidation;
 import com.kafkastreams.patientmonitoringsystem.Topology.Interface.PatientMonitoringTopology;
 
+@Component
 public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopology {
 
     @Autowired
@@ -65,11 +67,9 @@ public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopolog
                     return aggregate;
                 }
                 
-            },
-            null,
-            null
+            }
         )
-        .suppress(Suppressed.untilWindowCloses(BufferConfig.unbounded().shutDownWhenFull()))
+        // .suppress(Suppressed.untilWindowCloses(BufferConfig.unbounded().shutDownWhenFull()))
         .toStream()
         .mapValues(recordedHBs -> getRecordedHBWithValidation(recordedHBs));
         

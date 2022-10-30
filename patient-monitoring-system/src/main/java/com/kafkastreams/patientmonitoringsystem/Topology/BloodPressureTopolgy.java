@@ -6,12 +6,14 @@ import org.apache.kafka.streams.kstream.Branched;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.Produced;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import com.kafkastreams.patientmonitoringsystem.Config.StreamsConfiguration;
 import com.kafkastreams.patientmonitoringsystem.CustomSerdes.JsonSerde;
 import com.kafkastreams.patientmonitoringsystem.Models.BloodPressure;
 import com.kafkastreams.patientmonitoringsystem.Topology.Interface.PatientMonitoringTopology;
 
+@Component
 public class BloodPressureTopolgy implements PatientMonitoringTopology {
     
     @Autowired

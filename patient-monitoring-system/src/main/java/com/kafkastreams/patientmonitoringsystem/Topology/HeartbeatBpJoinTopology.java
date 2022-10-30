@@ -13,6 +13,7 @@ import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.ValueJoiner;
 import org.apache.kafka.streams.state.KeyValueStore;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import com.kafkastreams.patientmonitoringsystem.Config.StreamsConfiguration;
 import com.kafkastreams.patientmonitoringsystem.CustomSerdes.JsonSerde;
@@ -20,6 +21,7 @@ import com.kafkastreams.patientmonitoringsystem.Models.BloodPressure;
 import com.kafkastreams.patientmonitoringsystem.Models.HbBpJoinedValue;
 import com.kafkastreams.patientmonitoringsystem.Topology.Interface.PatientMonitoringTopology;
 
+@Component
 public class HeartbeatBpJoinTopology implements PatientMonitoringTopology {
 
     @Autowired
