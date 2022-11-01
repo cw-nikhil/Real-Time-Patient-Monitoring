@@ -29,7 +29,9 @@ public class PatientMonitoringSystemApplication {
 		for (PatientMonitoringTopology topology : topologies) {
 			topology.addTopology(builder);
 		}
-		return new KafkaStreams(builder.build(), StreamUtils.getStreamProperties());
+		var ksClient = new KafkaStreams(builder.build(), StreamUtils.getStreamProperties());
+		ksClient.start();
+		return ksClient;
 	}
 
 }
