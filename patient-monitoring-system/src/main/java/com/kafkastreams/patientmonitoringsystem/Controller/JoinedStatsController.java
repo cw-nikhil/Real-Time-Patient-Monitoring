@@ -20,14 +20,11 @@ public class JoinedStatsController {
     @Autowired
     private KafkaStreams kafkaStreams;
 
-    @Autowired
-	private StreamsConfiguration streamsConfig;
-
     @GetMapping("api/joinedstats/recent/{patientId}")
     public ArrayList<HbBpJoinedValue> GetRecentAbnormalStatsByPatientId(@PathVariable String patientId) {
         ReadOnlyKeyValueStore<String, ArrayList<HbBpJoinedValue>> store = kafkaStreams.store(
             StoreQueryParameters.fromNameAndType(
-                streamsConfig.recentJoinedStatsStore, QueryableStoreTypes.keyValueStore()
+                StreamsConfiguration.recentJoinedStatsStore, QueryableStoreTypes.keyValueStore()
             )
         );
         ArrayList<HbBpJoinedValue> records = store.get(patientId);
@@ -38,7 +35,7 @@ public class JoinedStatsController {
     public long GetAbnormalStatsCountByPatientId(@PathVariable String patientId) {
         ReadOnlyKeyValueStore<String, Long> store = kafkaStreams.store(
             StoreQueryParameters.fromNameAndType(
-                streamsConfig.patientCombinedStatsStore, QueryableStoreTypes.keyValueStore()
+                StreamsConfiguration.patientCombinedStatsStore, QueryableStoreTypes.keyValueStore()
             )
         );
         return store.get(patientId);

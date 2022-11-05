@@ -17,14 +17,11 @@ public class DeviceStatsController {
     @Autowired
     private KafkaStreams kafkaStreams;
 
-    @Autowired
-	private StreamsConfiguration streamsConfig;
-
     @GetMapping("api/devicestats/{deviceId}")
     public DeviceStats getDeviceStatsById(@PathVariable String deviceId) {
         ReadOnlyKeyValueStore<String, DeviceStats> store = kafkaStreams.store(
             StoreQueryParameters.fromNameAndType(
-                streamsConfig.deviceStatsStore, QueryableStoreTypes.keyValueStore()
+                StreamsConfiguration.deviceStatsStore, QueryableStoreTypes.keyValueStore()
             )
         );
         return store.get(deviceId);

@@ -16,7 +16,6 @@ import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.Windowed;
 import org.apache.kafka.streams.state.KeyValueStore;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.kafkastreams.patientmonitoringsystem.Config.StreamsConfiguration;
@@ -28,15 +27,11 @@ import com.kafkastreams.patientmonitoringsystem.Topology.Interface.PatientMonito
 
 @Component
 public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopology {
-
-    @Autowired
-	private StreamsConfiguration streamsConfig;
-
     private int maxHbDeviation = 2;
     
     public void addTopology(StreamsBuilder builder) {
         KStream<Windowed<String>, ArrayList<RecordedHBWithValidation>> validatedHBStream = builder.stream(
-            streamsConfig.recordedHbTopic,
+            StreamsConfiguration.recordedHbTopic,
             Consumed.with(new JsonSerde<Windowed<String>>(), Serdes.Long())
         )
         .map((windowedKey, hb) -> {
@@ -91,7 +86,7 @@ public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopolog
                 deviceStats.setCorrectRecordings(deviceStats.getCorrectRecordings() + (isDeviceHealthy ? 1 : 0));
                 return deviceStats;
             },
-            Materialized.<String, DeviceStats, KeyValueStore<Bytes,byte[]>>as(streamsConfig.deviceStatsStore)
+            Materialized.<String, DeviceStats, KeyValueStore<Bytes,byte[]>>as(StreamsConfiguration.deviceStatsStore)
         );
     }
 
@@ -110,7 +105,7 @@ public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopolog
             int avgHb = hbSum / correctRecordings;
             return new KeyValue<String, Integer>(patientId, avgHb);
         })
-        .to(streamsConfig.deviceAvgHbTopic, Produced.with(Serdes.String(), Serdes.Integer()));
+        .to(StreamsConfiguration.deviceAvgHbTopic, Produced.with(Serdes.String(), Serdes.Integer()));
     }
 
     private ArrayList<RecordedHBWithValidation> getRecordedHBWithValidation(ArrayList<RecordedHB> recordedValues) {

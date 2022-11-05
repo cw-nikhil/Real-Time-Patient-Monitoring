@@ -1,35 +1,13 @@
 package com.kafkastreams.patientmonitoringsystem.Config;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-
-@Component
-public class StreamsConfiguration {
-    @Value("${bpTopic}")
-    public String bpTopic;
-
-    @Value("${highBpTopic}")
-    public String highBpTopic;
-
-    @Value("${rawHbTopic}")
-    public String rawHbTopic;
-
-    @Value("${recordedHbTopic}")
-    public String recordedHbTopic;
-
-    @Value("${deviceAvgHbTopic}")
-    public String deviceAvgHbTopic;
-
-    @Value("${combinedValuesTopic}")
-    public String combinedValuesTopic;
-
-    @Value("${deviceStatsStore}")
-    public String deviceStatsStore;
-
-    @Value("${patientCombinedStatsStore}")
-    public String patientCombinedStatsStore;
-
-    @Value("${recentJoinedStatsStore}")
-    public String recentJoinedStatsStore;
+public static class StreamsConfiguration {
+    public static String bpTopic;
+    public static String highBpTopic;
+    public static String rawHbTopic;
+    public static String recordedHbTopic;
+    public static String deviceAvgHbTopic;
+    public static String combinedValuesTopic;
+    public static String deviceStatsStore;
+    public static String patientCombinedStatsStore;
+    public static String recentJoinedStatsStore;
 }

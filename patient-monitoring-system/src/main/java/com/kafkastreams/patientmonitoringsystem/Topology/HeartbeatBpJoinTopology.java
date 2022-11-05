@@ -14,7 +14,6 @@ import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.ValueJoiner;
 import org.apache.kafka.streams.state.KeyValueStore;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.kafkastreams.patientmonitoringsystem.Config.StreamsConfiguration;
@@ -25,18 +24,14 @@ import com.kafkastreams.patientmonitoringsystem.Topology.Interface.PatientMonito
 
 @Component
 public class HeartbeatBpJoinTopology implements PatientMonitoringTopology {
-
-    @Autowired
-	private StreamsConfiguration streamsConfig;
-
     private static int joinWindowInSeconds = 30;
     private static int highHbThreshold = 100;
     private static int latestRecordsCount = 10;
     public void addTopology(StreamsBuilder builder) {
         KStream<String, BloodPressure> highBpStream = builder
-            .stream(streamsConfig.highBpTopic, Consumed.with(Serdes.String(), new JsonSerde<BloodPressure>()));
+            .stream(StreamsConfiguration.highBpTopic, Consumed.with(Serdes.String(), new JsonSerde<BloodPressure>()));
         KStream<String, Integer> highHeartbeatStream = builder
-            .stream(streamsConfig.deviceAvgHbTopic, Consumed.with(Serdes.String(), Serdes.Integer()))
+            .stream(StreamsConfiguration.deviceAvgHbTopic, Consumed.with(Serdes.String(), Serdes.Integer()))
             .filter((patientId, heartbeat) -> heartbeat > highHbThreshold);
         
         ValueJoiner<BloodPressure, Integer, HbBpJoinedValue> valueJoiner = (bp, hb) -> {
@@ -50,7 +45,7 @@ public class HeartbeatBpJoinTopology implements PatientMonitoringTopology {
                 Duration.ofSeconds(joinWindowInSeconds)).before(Duration.ofSeconds(joinWindowInSeconds)
             )
         );
-        joinedStream.to(streamsConfig.combinedValuesTopic, Produced.with(Serdes.String(), new JsonSerde<HbBpJoinedValue>()));
+        joinedStream.to(StreamsConfiguration.combinedValuesTopic, Produced.with(Serdes.String(), new JsonSerde<HbBpJoinedValue>()));
 
         KGroupedStream<String, HbBpJoinedValue> groupedStream = joinedStream.groupByKey();
         materializeTotalCount(groupedStream);
@@ -61,7 +56,7 @@ public class HeartbeatBpJoinTopology implements PatientMonitoringTopology {
         groupedStream
             .count(
                 Materialized.<String, Long, KeyValueStore<Bytes, byte[]>>
-                    as(streamsConfig.patientCombinedStatsStore)
+                    as(StreamsConfiguration.patientCombinedStatsStore)
                     .withKeySerde(Serdes.String())
                     .withValueSerde(Serdes.Long())
             );
@@ -79,7 +74,7 @@ public class HeartbeatBpJoinTopology implements PatientMonitoringTopology {
                     return recentStats;
                 },
                 Materialized.<String, ArrayList<HbBpJoinedValue>, KeyValueStore<Bytes, byte[]>>
-                    as(streamsConfig.recentJoinedStatsStore)
+                    as(StreamsConfiguration.recentJoinedStatsStore)
                     .withKeySerde(Serdes.String())
                     .withValueSerde(new JsonSerde<ArrayList<HbBpJoinedValue>>())
             );

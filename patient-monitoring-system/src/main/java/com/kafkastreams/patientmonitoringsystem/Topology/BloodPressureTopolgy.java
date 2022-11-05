@@ -5,7 +5,6 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Branched;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.Produced;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.kafkastreams.patientmonitoringsystem.Config.StreamsConfiguration;
@@ -15,20 +14,16 @@ import com.kafkastreams.patientmonitoringsystem.Topology.Interface.PatientMonito
 
 @Component
 public class BloodPressureTopolgy implements PatientMonitoringTopology {
-    
-    @Autowired
-	private StreamsConfiguration streamsConfig;
-    
     public void addTopology(StreamsBuilder builder) {
         builder
-        .stream(streamsConfig.bpTopic, Consumed.with(Serdes.String(), new JsonSerde<BloodPressure>()))
+        .stream(StreamsConfiguration.bpTopic, Consumed.with(Serdes.String(), new JsonSerde<BloodPressure>()))
         .split()
         .branch((patientId, bp) -> isNormalBp(bp), Branched.as("normalBp"))
         .branch((patientId, bp) -> isLowBp(bp), Branched.as("lowBp"))
         .branch(
             (patientId, bp) -> isHighBp(bp),
             Branched.withConsumer(ks -> ks.to(
-                streamsConfig.highBpTopic,
+                StreamsConfiguration.highBpTopic,
                 Produced.with(Serdes.String(), new JsonSerde<BloodPressure>())
             ))
         )

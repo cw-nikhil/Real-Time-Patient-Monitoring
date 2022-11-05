@@ -11,7 +11,6 @@ import org.apache.kafka.streams.kstream.Suppressed;
 import org.apache.kafka.streams.kstream.TimeWindows;
 import org.apache.kafka.streams.kstream.Windowed;
 import org.apache.kafka.streams.kstream.Suppressed.BufferConfig;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.kafkastreams.patientmonitoringsystem.Config.StreamsConfiguration;
@@ -21,15 +20,11 @@ import com.kafkastreams.patientmonitoringsystem.Topology.Interface.PatientMonito
 
 @Component
 public class HeartbeatTopology implements PatientMonitoringTopology {
-
-    @Autowired
-	private StreamsConfiguration streamsConfig;
-
     private static int heartbeatWindowInSeconds = 60;
     private static int minimumHb = 35;
     public void addTopology(StreamsBuilder builder) {
         KStream<String, Heartbeat> heartbeatStream = builder.stream(
-            streamsConfig.rawHbTopic,
+            StreamsConfiguration.rawHbTopic,
             Consumed.with(Serdes.String(), new JsonSerde<Heartbeat>())
         );
         heartbeatStream
@@ -41,6 +36,6 @@ public class HeartbeatTopology implements PatientMonitoringTopology {
             )
             .toStream()
             .filter((windowedPatientId, heartbeat) -> heartbeat >= minimumHb)
-            .to(streamsConfig.recordedHbTopic, Produced.with(new JsonSerde<Windowed<String>>(), Serdes.Long()));
+            .to(StreamsConfiguration.recordedHbTopic, Produced.with(new JsonSerde<Windowed<String>>(), Serdes.Long()));
     }
 }
