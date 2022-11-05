@@ -1,6 +1,6 @@
 package com.kafkastreams.patientmonitoringsystem.Config;
 
-public static class StreamsConfiguration {
+public class StreamsConfiguration {
     public static String bpTopic;
     public static String highBpTopic;
     public static String rawHbTopic;
