@@ -1,4 +1,6 @@
+using Confluent.Kafka;
 using Producer;
+using Producer.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,7 +10,9 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddSingleton<KafkaProducer>();
+
+builder.Services.AddSingleton<IProducer<string, Heartbeat>>(ProducerFactory.GetProducer<string, Heartbeat>());
+builder.Services.AddSingleton<IProducer<string, BloodPressure>>(ProducerFactory.GetProducer<string, BloodPressure>());
 
 var app = builder.Build();
 
