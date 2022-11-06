@@ -25,6 +25,7 @@ public class PatientMonitoringSystemApplication {
 
 	@Bean
 	public KafkaStreams getKsClient() {
+		StreamUtils.createAllTopics();
 		StreamsBuilder builder = new StreamsBuilder();
 		for (PatientMonitoringTopology topology : topologies) {
 			topology.addTopology(builder);
