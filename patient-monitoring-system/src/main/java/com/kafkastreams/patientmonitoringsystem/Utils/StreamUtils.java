@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.StreamsConfig;
 
 import com.kafkastreams.patientmonitoringsystem.Config.StreamsConfiguration;
@@ -30,6 +31,8 @@ public class StreamUtils {
         Properties properties = new Properties();
         properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "http://localhost:9092");
         properties.put(StreamsConfig.APPLICATION_ID_CONFIG, "patient-monitoring-system");
+        properties.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+        properties.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
         return properties;
     }
 
