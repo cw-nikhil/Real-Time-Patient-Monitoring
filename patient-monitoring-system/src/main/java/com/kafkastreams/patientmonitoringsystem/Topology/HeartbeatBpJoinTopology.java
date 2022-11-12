@@ -43,9 +43,7 @@ public class HeartbeatBpJoinTopology implements PatientMonitoringTopology {
         KStream<String, HbBpJoinedValue> joinedStream = highBpStream.join(
             highHeartbeatStream,
             valueJoiner,
-            JoinWindows.ofTimeDifferenceWithNoGrace(
-                Duration.ofSeconds(joinWindowInSeconds)).before(Duration.ofSeconds(joinWindowInSeconds)
-            ),
+            JoinWindows.ofTimeDifferenceWithNoGrace(Duration.ofSeconds(joinWindowInSeconds)),
             StreamJoined.with(
                 Serdes.String(),
                 new JsonSerde<BloodPressure>(BloodPressure.class),

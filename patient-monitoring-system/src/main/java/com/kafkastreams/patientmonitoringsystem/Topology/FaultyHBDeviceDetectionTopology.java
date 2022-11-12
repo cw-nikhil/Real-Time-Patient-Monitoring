@@ -74,7 +74,12 @@ public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopolog
             Boolean isCorrectRecording = deviceInfo.getIsCorrectRecording();
             return new KeyValue<>(deviceId, isCorrectRecording);
         })
-        .groupByKey()
+        .groupByKey(
+            Grouped.with(
+                Serdes.String(),
+                new JsonSerde<Boolean>(Boolean.class)
+            )
+        )
         .aggregate(
             () -> new DeviceStats(),
             (deviceId, isDeviceHealthy, deviceStats) -> {
@@ -83,7 +88,10 @@ public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopolog
                 deviceStats.setCorrectRecordings(deviceStats.getCorrectRecordings() + (isDeviceHealthy ? 1 : 0));
                 return deviceStats;
             },
-            Materialized.<String, DeviceStats, KeyValueStore<Bytes,byte[]>>as(StreamsConfiguration.deviceStatsStore)
+            Materialized.<String, DeviceStats, KeyValueStore<Bytes,byte[]>>
+                as(StreamsConfiguration.deviceStatsStore)
+                .withKeySerde(Serdes.String())
+                .withValueSerde(new JsonSerde<DeviceStats>(DeviceStats.class))
         );
     }
 
