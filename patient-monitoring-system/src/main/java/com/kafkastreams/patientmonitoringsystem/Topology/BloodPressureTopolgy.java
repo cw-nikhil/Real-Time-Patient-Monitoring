@@ -16,7 +16,7 @@ import com.kafkastreams.patientmonitoringsystem.Topology.Interface.PatientMonito
 public class BloodPressureTopolgy implements PatientMonitoringTopology {
     public void addTopology(StreamsBuilder builder) {
         builder
-        .stream(StreamsConfiguration.bpTopic, Consumed.with(Serdes.String(), new JsonSerde<BloodPressure>()))
+        .stream(StreamsConfiguration.bpTopic, Consumed.with(Serdes.String(), new JsonSerde<BloodPressure>(BloodPressure.class)))
         .split()
         .branch((patientId, bp) -> isNormalBp(bp), Branched.as("normalBp"))
         .branch((patientId, bp) -> isLowBp(bp), Branched.as("lowBp"))
@@ -24,7 +24,7 @@ public class BloodPressureTopolgy implements PatientMonitoringTopology {
             (patientId, bp) -> isHighBp(bp),
             Branched.withConsumer(ks -> ks.to(
                 StreamsConfiguration.highBpTopic,
-                Produced.with(Serdes.String(), new JsonSerde<BloodPressure>())
+                Produced.with(Serdes.String(), new JsonSerde<BloodPressure>(BloodPressure.class))
             ))
         )
         .noDefaultBranch();

@@ -3,7 +3,6 @@ package com.kafkastreams.patientmonitoringsystem.CustomSerdes;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 
-import com.google.gson.reflect.TypeToken;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serializer;
@@ -13,6 +12,12 @@ import com.google.gson.GsonBuilder;
 
 
 public class JsonSerde<T> implements Serde<T> {
+
+    public JsonSerde(Class<T> classType) {
+        this.classType = classType;
+    }
+
+    private final Class<T> classType;
 
     @Override
     public Deserializer<T> deserializer() {
@@ -32,7 +37,7 @@ public class JsonSerde<T> implements Serde<T> {
             if (data == null) {
                 return null;
             }
-            Type typeOfT = new TypeToken<T>(){}.getType();
+            Type typeOfT = classType;
             return gson.fromJson(new String(data, StandardCharsets.UTF_8), typeOfT);
         }
     }

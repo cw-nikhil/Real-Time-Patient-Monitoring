@@ -8,21 +8,21 @@ import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
-import org.apache.kafka.streams.kstream.Aggregator;
 import org.apache.kafka.streams.kstream.Consumed;
-import org.apache.kafka.streams.kstream.Initializer;
+import org.apache.kafka.streams.kstream.Grouped;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
-import org.apache.kafka.streams.kstream.Windowed;
 import org.apache.kafka.streams.state.KeyValueStore;
 import org.springframework.stereotype.Component;
 
 import com.kafkastreams.patientmonitoringsystem.Config.StreamsConfiguration;
 import com.kafkastreams.patientmonitoringsystem.CustomSerdes.JsonSerde;
+import com.kafkastreams.patientmonitoringsystem.Models.AllDeviceRecordedHBs;
 import com.kafkastreams.patientmonitoringsystem.Models.DeviceStats;
 import com.kafkastreams.patientmonitoringsystem.Models.RecordedHB;
 import com.kafkastreams.patientmonitoringsystem.Models.RecordedHBWithValidation;
+import com.kafkastreams.patientmonitoringsystem.Models.WindowedString;
 import com.kafkastreams.patientmonitoringsystem.Topology.Interface.PatientMonitoringTopology;
 
 @Component
@@ -30,46 +30,43 @@ public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopolog
     private int maxHbDeviation = 2;
     
     public void addTopology(StreamsBuilder builder) {
-        KStream<Windowed<String>, ArrayList<RecordedHBWithValidation>> validatedHBStream = builder.stream(
+        KStream<WindowedString, ArrayList<RecordedHBWithValidation>> validatedHBStream = builder.stream(
             StreamsConfiguration.recordedHbTopic,
-            Consumed.with(new JsonSerde<Windowed<String>>(), Serdes.Long())
+            Consumed.with(new JsonSerde<WindowedString>(WindowedString.class), Serdes.Long())
         )
         .map((windowedKey, hb) -> {
-            String patientIdDeviceId = windowedKey.key();
+            String patientIdDeviceId = windowedKey.getKey();
             String patientId = patientIdDeviceId.split("-", -1)[0];
             String deviceId = patientIdDeviceId.split("-", -1)[1];
-            Windowed<String> windowedPatientId = new Windowed<String>(patientId, windowedKey.window());
+            WindowedString windowedPatientId = new WindowedString(patientId, windowedKey.getWindow());
             var value = new RecordedHB(deviceId, Math.toIntExact(hb));
             return new KeyValue<>(windowedPatientId, value);
         })
-        .groupByKey()
+        .groupByKey(
+            Grouped.with(
+                new JsonSerde<WindowedString>(WindowedString.class),
+                new JsonSerde<RecordedHB>(RecordedHB.class)
+            )
+        )
         .aggregate(
-            new Initializer<ArrayList<RecordedHB>>() {
-
-                @Override
-                public ArrayList<RecordedHB> apply() {
-                    return new ArrayList<>();
-                }
+            () -> new AllDeviceRecordedHBs(),
+            (key, value, aggregate) -> {
+                aggregate.recordedValues.add(value);
+                return aggregate;
             },
-            new Aggregator<Windowed<String>, RecordedHB, ArrayList<RecordedHB>>() {
-
-                @Override
-                public ArrayList<RecordedHB> apply(Windowed<String> key, RecordedHB value,
-                        ArrayList<RecordedHB> aggregate) {
-                    aggregate.add(value);
-                    return aggregate;
-                }
-                
-            }
+            Materialized.with(
+                new JsonSerde<WindowedString>(WindowedString.class),
+                new JsonSerde<AllDeviceRecordedHBs>(AllDeviceRecordedHBs.class)
+            )
         )
         .toStream()
-        .mapValues(recordedHBs -> getRecordedHBWithValidation(recordedHBs));
+        .mapValues(allDeviceRecordedHBs -> getRecordedHBWithValidation(allDeviceRecordedHBs.recordedValues));
         
         materializeDeviceStats(validatedHBStream);
         streamDeviceAvgHB(validatedHBStream);
     }
 
-    private void materializeDeviceStats(KStream<Windowed<String>, ArrayList<RecordedHBWithValidation>> validatedHBStream) {
+    private void materializeDeviceStats(KStream<WindowedString, ArrayList<RecordedHBWithValidation>> validatedHBStream) {
         validatedHBStream
         .flatMapValues(recordedHBWithValidations -> recordedHBWithValidations)
         .map((windowedPatientId, deviceInfo) -> {
@@ -90,10 +87,10 @@ public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopolog
         );
     }
 
-    private void streamDeviceAvgHB(KStream<Windowed<String>, ArrayList<RecordedHBWithValidation>> validatedHBStream) {
+    private void streamDeviceAvgHB(KStream<WindowedString, ArrayList<RecordedHBWithValidation>> validatedHBStream) {
         validatedHBStream
         .map((windowedPatientId, recordedHBWithValidations) -> {
-            String patientId = windowedPatientId.key();
+            String patientId = windowedPatientId.getKey();
             int hbSum = 0;
             int correctRecordings = 0;
             for (RecordedHBWithValidation recordedHBWithValidation : recordedHBWithValidations) {
@@ -102,9 +99,10 @@ public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopolog
                     correctRecordings++;
                 }
             }
-            int avgHb = hbSum / correctRecordings;
+            int avgHb = correctRecordings > 0 ? hbSum / correctRecordings : -1;
             return new KeyValue<String, Integer>(patientId, avgHb);
         })
+        .filter((patientId, avgHb) -> avgHb != -1)
         .to(StreamsConfiguration.deviceAvgHbTopic, Produced.with(Serdes.String(), Serdes.Integer()));
     }
 
@@ -116,6 +114,9 @@ public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopolog
         int maxHbValue = 150;
         HashMap<Integer, ArrayList<String>> devicesByHb = new HashMap<Integer, ArrayList<String>>();
         recordedValues.forEach(recordedValue -> {
+            if (devicesByHb.get(recordedValue.heartbeat) == null) {
+                devicesByHb.put(recordedValue.heartbeat, new ArrayList<String>());
+            }
             devicesByHb.get(recordedValue.heartbeat).add(recordedValue.deviceId);
         });
         HashMap<Integer, Integer> deviceCountInWindow = new HashMap<Integer, Integer>();
@@ -123,7 +124,8 @@ public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopolog
         for (int hbWindowStart = minHbValue; hbWindowStart < maxHbValue; hbWindowStart++) {
             int devicesInCurrentWindow = 0;
             for (int hb = hbWindowStart; hb < hbWindowStart + maxHbDeviation; hb++) {
-                devicesInCurrentWindow += devicesByHb.get(hb).size();
+                ArrayList<String> devices = devicesByHb.get(hb);
+                devicesInCurrentWindow += devices != null ? devices.size() : 0;
             }
             deviceCountInWindow.put(hbWindowStart, devicesInCurrentWindow);
             maxDevices = Math.max(maxDevices, devicesInCurrentWindow);
@@ -140,13 +142,15 @@ public class FaultyHBDeviceDetectionTopology implements PatientMonitoringTopolog
         for (int hb = minHbValue; hb < maxHbValue; hb++) {
             final int hbFinal = hb;
             Boolean isCorrectHb = hb >= chosenWindow && hb < chosenWindow + maxHbDeviation;
-            deviceStatus.addAll(
-                devicesByHb
-                .get(hb)
-                .stream()
-                .map(deviceId -> new RecordedHBWithValidation(deviceId, hbFinal, isCorrectHb))
-                .collect(Collectors.toList())
-            );
+            if (devicesByHb.get(hb) != null) {
+                deviceStatus.addAll(
+                    devicesByHb
+                    .get(hb)
+                    .stream()
+                    .map(deviceId -> new RecordedHBWithValidation(deviceId, hbFinal, isCorrectHb))
+                    .collect(Collectors.toList())
+                );
+            }
         }
         return deviceStatus;
     }
